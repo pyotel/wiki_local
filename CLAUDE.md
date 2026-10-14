@@ -1,7 +1,7 @@
 ---
 type: ai-context
 purpose: 이 볼트에서 작업하는 모든 AI(LLM)가 매 작업마다 가장 먼저 읽는 행동 지침
-last_updated: 2026-10-13
+last_updated: 2026-10-14
 ---
 
 # CLAUDE.md — 로컬 위키 포탈 (wiki_local)
@@ -36,6 +36,11 @@ last_updated: 2026-10-13
 
 ## 작업 규칙
 - **한국어**로 응답. 간결하게.
-- 질문 처리: graphify 그래프(있으면) → wiki 본문 → raw 드릴다운 순으로 근거 확보, `[[페이지명]]`·경로 인용. 근거 없으면 "위키에 없음".
-- 의미 있는 종합은 `wiki/syntheses/` 로 환원, `wiki/log.md` append.
+- **위키 우선 (모든 질의·작업)**: `/query` 뿐 아니라 이 세션의 **모든 질문·작업**(문서 작성, Output 초안, 이슈 처리, 일반 질문 등)은 답하거나 손대기 전에 이 위키를 먼저 참고한다. 일반 지식으로 바로 답하지 말 것.
+  1. **그래프** — `graphify-out/` (`graph.json`·`GRAPH_REPORT.md`) 이 있으면 관련 노드·이웃·커뮤니티로 범위를 좁힌다
+  2. **위키 본문** — `wiki/index.md` → 관련 `entities/`·`concepts/`·`topics/`·`syntheses/` 페이지와 `[[링크]]` 를 따라 읽는다
+  3. **raw 드릴다운** — 위키가 부족하거나 수치·원문 확인이 필요하면 `raw/` 원본 (`portal_data/raw_meta.json` 설명 포함)
+- 근거는 `[[페이지명]]`·경로로 인용. 위키에 근거가 없으면 "위키에 없음" 이라 밝히고, 외부·일반 지식은 그와 구분해 표시.
+- 위키 내용과 충돌·누락을 발견하면 작업 후 해당 페이지 갱신(또는 `/lint` 제안).
+- 의미 있는 종합·결론은 `wiki/syntheses/` 로 환원, `wiki/log.md` append.
 - 셸 명령은 Windows(Git Bash)·Linux 양쪽에서 돌도록 `python` (표준 라이브러리) 우선. `python3`·GNU 전용 옵션 의존 금지.
