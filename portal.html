@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>로컬 위키 포탈</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafafa; --card: #fff; --fg: #1a1a1a; --fg-muted: #6a6a6a;
+    --border: #e3e3e0; --accent: #0a5a7c; --accent-soft: #e3f0f5;
+    --error: #b00020; --ok: #0a7c5a; --warn: #a86500;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1014; --card: #1c1e26; --fg: #e7e9ee; --fg-muted: #8b919a;
+      --border: #2a2d36; --accent: #4ab8d6; --accent-soft: #1a2c33;
+      --error: #ff8a8a; --ok: #4ad6a3; --warn: #ffc46b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-size: 15px;
+    font-family: "Pretendard", "Malgun Gothic", "Segoe UI", -apple-system, sans-serif; }
+  header { display: flex; align-items: center; gap: 1rem; padding: .7rem 1.2rem; background: var(--card);
+    border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; flex-wrap: wrap; }
+  header h1 { font-size: 1.05rem; margin: 0; white-space: nowrap; }
+  nav { display: flex; gap: .15rem; flex: 1; flex-wrap: wrap; }
+  nav button { border: 0; background: none; color: var(--fg-muted); padding: .45rem .8rem; border-radius: 6px;
+    cursor: pointer; font-size: .88rem; font-family: inherit; }
+  nav button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  nav button:hover { color: var(--accent); }
+  main { max-width: 1560px; margin: 0 auto; padding: 1.2rem; }
+  section.tab { display: none; } section.tab.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
+  h2 { font-size: 1.05rem; margin: .2rem 0 .8rem; }
+  input, textarea, select { width: 100%; padding: .5rem .65rem; font-size: .9rem; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--fg); font-family: inherit; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 60px; }
+  label { display: block; font-size: .76rem; color: var(--fg-muted); margin: .6rem 0 .25rem; }
+  .btn { padding: .5rem 1rem; font-size: .88rem; font-weight: 600; border: 0; border-radius: 6px;
+    background: var(--accent); color: #fff; cursor: pointer; font-family: inherit; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.ghost { background: none; border: 1px solid var(--border); color: var(--fg-muted); font-weight: 400; }
+  .btn.ghost:hover { color: var(--accent); border-color: var(--accent); }
+  .btn.sm { padding: .25rem .6rem; font-size: .78rem; }
+  .btn.danger { background: none; border: 1px solid var(--border); color: var(--error); font-weight: 400; }
+  .row { display: flex; gap: .8rem; flex-wrap: wrap; align-items: flex-end; }
+  .row > * { flex: 1; min-width: 140px; }
+  .muted { color: var(--fg-muted); font-size: .8rem; }
+  .badge { display: inline-block; font-size: .72rem; padding: .1rem .5rem; border-radius: 99px;
+    background: var(--accent-soft); color: var(--accent); margin-right: .25rem; }
+  .badge.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+  .badge.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .8rem; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: .8rem 1rem; }
+  .stat b { display: block; font-size: 1.6rem; color: var(--accent); }
+  .split { display: flex; gap: 1rem; align-items: flex-start; }
+  .split > .side { flex: none; width: 320px; max-height: 80vh; overflow: auto; }
+  .split > .main { flex: 1; min-width: 0; }
+  @media (max-width: 820px) { .split { flex-direction: column; } .split > .side { width: 100%; max-height: 40vh; } }
+  .tree-row { display: block; padding: .2rem .4rem; border-radius: 5px; cursor: pointer; font-size: .86rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tree-row:hover { background: var(--accent-soft); }
+  .tree-row.selected { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .tree-children { margin-left: .9rem; }
+  table.list { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  table.list td, table.list th { padding: .45rem .5rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  table.list tr.click { cursor: pointer; } table.list tr.click:hover { background: var(--accent-soft); }
+  .drop { border: 2px dashed var(--border); border-radius: 10px; padding: 1rem; text-align: center; color: var(--fg-muted); }
+  .drop.over { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .md-body { font-size: .92rem; line-height: 1.65; word-break: break-word; }
+  .md-body h1 { font-size: 1.35rem; border-bottom: 1px solid var(--border); padding-bottom: .35rem; }
+  .md-body h2 { font-size: 1.12rem; margin: 1.2rem 0 .5rem; border-bottom: 1px solid var(--border); padding-bottom: .25rem; }
+  .md-body table { border-collapse: collapse; margin: .7rem 0; display: block; overflow-x: auto; }
+  .md-body th, .md-body td { border: 1px solid var(--border); padding: .4rem .65rem; font-size: .85rem; }
+  .md-body th { background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  .md-body blockquote { margin: .7rem 0; padding: .4rem .9rem; border-left: 3px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent); border-radius: 0 8px 8px 0; color: var(--fg-muted); }
+  .md-body code { background: color-mix(in srgb, var(--accent) 10%, var(--bg)); padding: .1rem .35rem; border-radius: 4px; font-size: .84em; }
+  .md-body pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: .8rem; overflow-x: auto; }
+  .md-body pre code { background: none; padding: 0; }
+  .md-body img { max-width: 100%; }
+  .md-body a { color: var(--accent); cursor: pointer; }
+  .md-body a.wikilink { text-decoration: none; border-bottom: 1px dashed var(--accent); }
+  .md-body a.wikilink.missing { color: var(--fg-muted); border-bottom-color: var(--fg-muted); }
+  mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; }
+  #toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg);
+    padding: .55rem 1rem; border-radius: 8px; font-size: .86rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast.show { opacity: .92; }
+  #gate { max-width: 560px; margin: 12vh auto; text-align: center; }
+</style>
+</head>
+<body>
+<div id="gate" class="card">
+  <h2>📚 로컬 위키 포탈</h2>
+  <p class="muted">서버 없이 이 PC 의 볼트 폴더를 직접 읽고 씁니다.<br>이 <code>portal.html</code> 이 들어있는 폴더(볼트 루트)를 선택하세요.</p>
+  <p><button class="btn" id="pickBtn">📂 볼트 폴더 선택</button>
+     <button class="btn ghost" id="reBtn" style="display:none"></button></p>
+  <p class="muted" id="gateMsg"></p>
+</div>
+
+<div id="app" style="display:none">
+<header>
+  <h1>📚 <span id="vaultName"></span></h1>
+  <nav>
+    <button data-tab="home">🏠 홈</button>
+    <button data-tab="raw">📁 Raw</button>
+    <button data-tab="wiki">📚 위키</button>
+    <button data-tab="issues">🐛 이슈</button>
+  </nav>
+  <button class="btn ghost sm" id="graphBtn">🕸 그래프</button>
+  <button class="btn ghost sm" id="switchBtn">폴더 변경</button>
+</header>
+<main>
+  <section class="tab" id="tab-home">
+    <div class="stats" id="stats"></div>
+    <div class="split" style="margin-top:1rem">
+      <div class="main">
+        <div class="card"><h2>⏳ 인제스트 대기</h2><div id="pendingList"></div>
+          <p class="muted">대기 파일은 <code>ingest.bat</code> 실행 또는 Claude Code 에서 <code>/ingest</code> 로 위키에 반영됩니다.</p></div>
+        <div class="card"><h2>📝 최근 작업 로그 <span class="muted">wiki/log.md</span></h2><div class="md-body" id="logBody"></div></div>
+      </div>
+      <div class="side card"><h2>🕘 최근 변경 페이지</h2><div id="recentList"></div></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-raw">
+    <div class="card">
+      <div class="row" style="align-items:center">
+        <div id="rawCrumb" style="flex:3"></div>
+        <div style="flex:none;min-width:0">
+          <button class="btn ghost sm" id="mkdirBtn">+ 폴더</button>
+          <button class="btn ghost sm" id="memoBtn">📝 메모 작성</button>
+        </div>
+      </div>
+      <table class="list" style="margin-top:.6rem"><tbody id="rawList"></tbody></table>
+    </div>
+    <div class="card" id="memoCard" style="display:none">
+      <h2>📝 메모 작성 <span class="muted">→ 현재 폴더에 md 로 저장, 인제스트 대기</span></h2>
+      <label>제목</label><input id="memoTitle">
+      <label>본문 (markdown)</label><textarea id="memoBody" rows="10"></textarea>
+      <p><button class="btn" id="memoSave">저장</button></p>
+    </div>
+    <div class="card">
+      <h2>⬆️ 업로드 <span class="muted">현재 폴더로 복사</span></h2>
+      <div class="drop" id="drop">여기로 파일을 끌어다 놓거나 <input type="file" id="upFiles" multiple style="width:auto"></div>
+      <label>설명 (인제스트 시 AI 가 참고하는 맥락 — 무엇인지, 왜 올리는지)</label>
+      <textarea id="upDesc" rows="2"></textarea>
+      <p><button class="btn" id="upBtn">업로드</button> <span class="muted" id="upSel"></span></p>
+    </div>
+    <div class="card" id="rawViewCard" style="display:none"><h2 id="rawViewTitle"></h2><div class="md-body" id="rawView"></div></div>
+  </section>
+
+  <section class="tab" id="tab-wiki">
+    <div class="split">
+      <div class="side card">
+        <input id="wikiSearch" placeholder="🔍 위키 전문 검색 (2자 이상, Esc 취소)">
+        <div id="wikiTree" style="margin-top:.6rem"></div>
+      </div>
+      <div class="main card"><h2 id="viewTitle" class="muted">왼쪽에서 페이지를 선택하세요</h2><div class="md-body" id="viewBody"></div></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-issues">
+    <div class="card">
+      <h2>새 이슈</h2>
+      <div class="row"><div style="flex:3"><label>제목</label><input id="isTitle"></div>
+        <div><label>기한</label><input type="date" id="isDue"></div></div>
+      <label>내용 (markdown)</label><textarea id="isBody" rows="3"></textarea>
+      <p><button class="btn" id="isAdd">등록</button>
+        <label style="display:inline;margin-left:1rem"><input type="checkbox" id="isShowDone" style="width:auto"> 완료 포함</label></p>
+    </div>
+    <div id="issueList"></div>
+  </section>
+</main>
+</div>
+<div id="toast"></div>
+
+<script src="assets/marked.min.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+const fmtTime = t => new Date(t).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' });
+const fmtSize = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+const nfc = s => s.normalize('NFC');
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2500); }
+if (typeof marked !== 'undefined') marked.use({ breaks: true, gfm: true });
+
+// ── IndexedDB: 선택한 폴더 핸들 기억 ──
+function kv(mode, fn) {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('wiki_local', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onerror = () => rej(r.error);
+    r.onsuccess = () => { const tx = r.result.transaction('kv', mode); const q = fn(tx.objectStore('kv')); tx.oncomplete = () => res(q.result); tx.onerror = () => rej(tx.error); };
+  });
+}
+
+// ── 파일시스템 (File System Access API, 경로는 볼트 루트 기준 '/' 구분) ──
+let ROOT = null;
+const parts = p => p.split('/').filter(Boolean);
+const dirname = p => parts(p).slice(0, -1).join('/');
+const basename = p => parts(p).pop() || '';
+async function dirAt(path, create = false) { let d = ROOT; for (const p of parts(path)) d = await d.getDirectoryHandle(p, { create }); return d; }
+async function fileAt(path, create = false) { return (await dirAt(dirname(path), create)).getFileHandle(basename(path), { create }); }
+const getFile = async path => (await fileAt(path)).getFile();
+const readText = async path => (await getFile(path)).text();
+async function exists(path) { try { await fileAt(path); return true; } catch { return false; } }
+async function writeFile(path, data) { const w = await (await fileAt(path, true)).createWritable(); await w.write(data); await w.close(); }
+async function readJSON(path, def) { try { return JSON.parse(await readText(path)); } catch { return def; } }
+const writeJSON = (path, v) => writeFile(path, JSON.stringify(v, null, 2));
+async function list(path) {
+  const out = [];
+  let d; try { d = await dirAt(path); } catch { return out; }
+  for await (const [name, h] of d.entries()) if (!name.startsWith('.')) out.push({ name, kind: h.kind, h });
+  return out.sort((a, b) => a.kind === b.kind ? a.name.localeCompare(b.name, 'ko') : a.kind === 'directory' ? -1 : 1);
+}
+async function walk(path, fn) {
+  for (const e of await list(path)) {
+    const p = path ? path + '/' + e.name : e.name;
+    if (e.kind === 'directory') await walk(p, fn); else await fn(p, e.h);
+  }
+}
+function resolvePath(base, rel) {
+  const out = parts(base);
+  for (const p of decodeURI(rel).split('/')) { if (p === '..') out.pop(); else if (p && p !== '.') out.push(p); }
+  return out.join('/');
+}
+async function openBlob(path) {
+  try { window.open(URL.createObjectURL(await getFile(path)), '_blank'); } catch (e) { toast('열기 실패: ' + e.message); }
+}
+
+// ── 볼트 연결 ──
+const SKELETON = ['raw', 'wiki/entities', 'wiki/concepts', 'wiki/topics', 'wiki/sources', 'wiki/syntheses', 'wiki/assets', 'Output', 'portal_data'];
+async function connect(h) {
+  ROOT = h;
+  await kv('readwrite', s => s.put(h, 'root'));
+  for (const d of SKELETON) await dirAt(d, true);
+  $('vaultName').textContent = h.name;
+  $('gate').style.display = 'none'; $('app').style.display = '';
+  WIKI = null;
+  route();
+}
+$('pickBtn').onclick = async () => {
+  try { await connect(await showDirectoryPicker({ id: 'wiki_local', mode: 'readwrite' })); }
+  catch (e) { if (e.name !== 'AbortError') $('gateMsg').textContent = '실패: ' + e.message; }
+};
+$('switchBtn').onclick = () => { $('app').style.display = 'none'; $('gate').style.display = ''; $('reBtn').style.display = 'none'; };
+(async function init() {
+  if (!window.showDirectoryPicker) {
+    $('pickBtn').disabled = true;
+    $('gateMsg').innerHTML = '⚠️ 이 브라우저는 로컬 폴더 접근(File System Access API)을 지원하지 않습니다.<br><b>Microsoft Edge 또는 Chrome</b> 으로 여세요 (<code>open-portal.bat</code>).';
+    return;
+  }
+  const h = await kv('readonly', s => s.get('root')).catch(() => null);
+  if (!h) return;
+  if (await h.queryPermission({ mode: 'readwrite' }) === 'granted') return connect(h);
+  // 브라우저 재시작 후엔 사용자 클릭으로 권한 재허가 필요
+  const b = $('reBtn'); b.style.display = ''; b.textContent = `↻ 「${h.name}」 다시 열기`;
+  b.onclick = async () => { if (await h.requestPermission({ mode: 'readwrite' }) === 'granted') connect(h); };
+})();
+
+// ── 라우팅: #home  #raw=<경로>  #wiki=<경로> ──
+function go(hash) { if (location.hash !== hash) location.hash = hash; else route(); }
+window.addEventListener('hashchange', () => ROOT && route());
+function route() {
+  const m = location.hash.match(/^#(\w+)(?:=(.*))?$/) || [, 'home'];
+  const tab = ['home', 'raw', 'wiki', 'issues'].includes(m[1]) ? m[1] : 'home';
+  const arg = m[2] ? decodeURIComponent(m[2]) : '';
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
+  ({ home: loadHome, raw: () => loadRaw(arg || 'raw'), wiki: () => loadWiki(arg), issues: loadIssues })[tab]();
+}
+document.querySelector('nav').onclick = e => { const b = e.target.closest('button'); if (b) go('#' + b.dataset.tab); };
+
+// ── 위키 인덱스 (파일명 → 경로, 위키링크 해석용) ──
+let WIKI = null;  // { files: [{path, h}], byName: Map }
+async function wikiIndex(force = false) {
+  if (WIKI && !force) return WIKI;
+  const files = [], byName = new Map();
+  for (const top of ['wiki', 'Output']) await walk(top, (p, h) => { files.push({ path: p, h }); });
+  for (const f of files) {
+    const n = nfc(basename(f.path));
+    if (!byName.has(n)) byName.set(n, f.path);
+    if (n.endsWith('.md') && !byName.has(n.slice(0, -3))) byName.set(n.slice(0, -3), f.path);
+  }
+  return WIKI = { files, byName };
+}
+const findPage = name => WIKI.byName.get(nfc(basename(name.split('#')[0].trim())));
+
+// ── 마크다운 렌더 (frontmatter 칩 · [[위키링크]] · ![[임베드]] · 상대경로 이미지/링크) ──
+const mdOutsideCode = (t, fn) => t.split(/(```[\s\S]*?```|`[^`\n]*`)/).map((s, i) => i % 2 ? s : fn(s)).join('');
+const escTilde = s => s.replace(/(^|[^~\\])~(?!~)/g, '$1\\~');  // 14:00~15:30 이 취소선으로 파싱되는 것 방지
+function metaChips(yaml) {
+  const get = k => (yaml.match(new RegExp('^' + k + ':\\s*(.+)$', 'm')) || [])[1];
+  let chips = [get('type'), ...(get('tags') || '').replace(/[\[\]"]/g, '').split(',')];
+  const upd = get('updated') || get('ingested'); if (upd) chips.push('🗓 ' + upd);
+  chips = chips.map(c => c && c.trim()).filter(Boolean);
+  return chips.length ? '<p>' + chips.map(c => `<span class="badge">${esc(c)}</span>`).join('') + '</p>' : '';
+}
+async function renderMd(el, text, path) {
+  if (typeof marked === 'undefined') { el.innerHTML = `<pre>${esc(text)}</pre>`; return; }
+  await wikiIndex();
+  let meta = '';
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (fm) { meta = metaChips(fm[1]); text = text.slice(fm[0].length); }
+  text = mdOutsideCode(text, s => escTilde(s
+    .replace(/!\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]/g, (_, n) => `<img data-path="${esc(findPage(n) || '')}" alt="${esc(n)}">`)
+    .replace(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g, (_, n, alias) => {
+      const p = findPage(n);
+      return `<a class="wikilink${p ? '' : ' missing'}" data-path="${esc(p || '')}" title="${esc(p || '아직 없는 페이지')}">${esc((alias || n).trim())}</a>`;
+    })));
+  el.innerHTML = meta + marked.parse(text);
+  const base = dirname(path);
+  for (const img of el.querySelectorAll('img')) {
+    const src = img.getAttribute('src');
+    const p = img.dataset.path || (src && !/^(https?:|data:|blob:)/.test(src) ? resolvePath(base, src) : null);
+    if (p) getFile(p).then(f => { img.src = URL.createObjectURL(f); }).catch(() => { img.alt = '⚠️ 이미지 없음: ' + p; });
+  }
+  for (const a of el.querySelectorAll('a[href]')) {
+    const href = a.getAttribute('href');
+    if (/^(https?:|mailto:)/.test(href)) a.target = '_blank';
+    else if (!href.startsWith('#')) { a.dataset.path = resolvePath(base, href.split('#')[0]); a.removeAttribute('href'); }
+  }
+}
+// 렌더된 본문 안 내부 링크 클릭
+function openPath(p) {
+  if (!p) return toast('아직 없는 페이지');
+  if (p.startsWith('raw/')) return /\.(md|txt|csv|json)$/i.test(p) ? go('#raw=' + encodeURIComponent(p)) : openBlob(p);
+  go('#wiki=' + encodeURIComponent(p));
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('.md-body a[data-path]');
+  if (a) { e.preventDefault(); openPath(a.dataset.path); }
+});
+
+// ── 홈 ──
+const RAW_SKIP = n => n === 'CLAUDE.md' || n.endsWith('.ingest.md');
+// 인제스트 대기 판정 — .claude/skills/ingest 와 같은 규칙
+async function rawStatus() {
+  const all = [];
+  await walk('raw', (p, h) => all.push({ p, h }));
+  const set = new Set(all.map(x => nfc(x.p)));
+  const files = [], pending = new Set();
+  for (const { p, h } of all) {
+    if (RAW_SKIP(basename(p))) continue;
+    files.push(p);
+    const done = p.endsWith('.md') ? (await (await h.getFile()).text()).includes('ingest_status: done') : set.has(nfc(p) + '.ingest.md');
+    if (!done) pending.add(p);
+  }
+  return { files, pending };
+}
+async function loadHome() {
+  treeBuilt = false;  // 홈 = 새로고침: 인제스트로 생긴 새 페이지를 트리에 반영
+  const [wi, rs, issues, log] = await Promise.all([
+    wikiIndex(true), rawStatus(), readJSON('portal_data/issues.json', []), readText('wiki/log.md').catch(() => ''),
+  ]);
+  const pages = wi.files.filter(f => /^wiki\/[^_].*\.md$/.test(f.path) && !/\/(_|CLAUDE\.md|index\.md|log\.md)/.test(f.path));
+  const cnt = d => pages.filter(f => f.path.startsWith('wiki/' + d + '/')).length;
+  const stat = (n, label, hash) => `<div class="stat" style="cursor:pointer" onclick="go('${hash}')"><b>${n}</b><span class="muted">${label}</span></div>`;
+  $('stats').innerHTML = stat(pages.length, '위키 페이지', '#wiki') +
+    ['sources', 'entities', 'concepts', 'topics', 'syntheses'].map(d => stat(cnt(d), d, '#wiki=wiki/' + d)).join('') +
+    stat(rs.files.length, 'raw 원본', '#raw') +
+    stat(rs.pending.size, '인제스트 대기', '#raw') +
+    stat(issues.filter(i => i.status !== 'done').length, '미완료 이슈', '#issues');
+  $('pendingList').innerHTML = rs.pending.size
+    ? '<table class="list"><tbody>' + [...rs.pending].map(p => `<tr class="click" onclick="go('#raw=${esc(encodeURIComponent(dirname(p)))}')"><td>📄 ${esc(p)}</td></tr>`).join('') + '</tbody></table>'
+    : '<span class="muted">대기 0건 — 모두 위키에 반영됨</span>';
+  const withTime = await Promise.all(pages.map(async f => ({ ...f, t: (await f.h.getFile()).lastModified })));
+  $('recentList').innerHTML = withTime.sort((a, b) => b.t - a.t).slice(0, 20).map(f =>
+    `<span class="tree-row" onclick="go('#wiki=${esc(encodeURIComponent(f.path))}')">📄 ${esc(basename(f.path).replace(/\.md$/, ''))}
+     <span class="muted">${fmtTime(f.t)}</span></span>`).join('') || '<span class="muted">아직 페이지 없음</span>';
+  const entries = log.split(/\n(?=## \[)/).filter(s => s.startsWith('## ['));
+  if (entries.length) await renderMd($('logBody'), entries.slice(-5).reverse().join('\n\n'), 'wiki/log.md');
+  else $('logBody').innerHTML = '<span class="muted">로그 없음</span>';
+}
+
+// ── Raw ──
+let rawCwd = 'raw';
+async function loadRaw(arg) {
+  let dir = arg, view = null;
+  if (/\.[^/]+$/.test(arg) && await exists(arg)) { view = arg; dir = dirname(arg); }
+  if (!dir.startsWith('raw')) dir = 'raw';
+  rawCwd = dir;
+  const crumbs = parts(dir);
+  $('rawCrumb').innerHTML = crumbs.map((c, i) =>
+    `<a style="cursor:pointer;color:var(--accent)" onclick="go('#raw=${esc(encodeURIComponent(crumbs.slice(0, i + 1).join('/')))}')">${esc(c)}</a>`).join(' / ');
+  const [items, meta, rs] = await Promise.all([list(dir), readJSON('portal_data/raw_meta.json', {}), rawStatus()]);
+  const rows = [];
+  if (crumbs.length > 1) rows.push(`<tr class="click" onclick="go('#raw=${esc(encodeURIComponent(dirname(dir)))}')"><td colspan="4">⬆️ ..</td></tr>`);
+  for (const it of items) {
+    const p = dir + '/' + it.name;
+    if (it.kind === 'directory') { rows.push(`<tr class="click" onclick="go('#raw=${esc(encodeURIComponent(p))}')"><td colspan="4">📂 ${esc(it.name)}</td></tr>`); continue; }
+    if (RAW_SKIP(it.name)) continue;
+    const f = await it.h.getFile();
+    const badge = rs.pending.has(p) ? '<span class="badge warn">대기</span>' : '<span class="badge ok">반영됨</span>';
+    const desc = meta[p]?.description;
+    rows.push(`<tr class="click" data-p="${esc(p)}"><td>📄 ${esc(it.name)} ${badge}${desc ? `<div class="muted">${esc(desc)}</div>` : ''}</td>
+      <td class="muted">${fmtSize(f.size)}</td><td class="muted">${fmtTime(f.lastModified)}</td>
+      <td><button class="btn ghost sm" data-desc="${esc(p)}">설명</button></td></tr>`);
+  }
+  $('rawList').innerHTML = rows.join('') || '<tr><td class="muted">(비어있음)</td></tr>';
+  $('rawViewCard').style.display = 'none';
+  if (view) showRaw(view);
+}
+async function showRaw(p) {
+  if (!/\.(md|txt|csv|json|ya?ml)$/i.test(p)) return openBlob(p);
+  $('rawViewCard').style.display = '';
+  $('rawViewTitle').textContent = p;
+  const t = await readText(p);
+  if (p.endsWith('.md')) await renderMd($('rawView'), t, p); else $('rawView').innerHTML = `<pre>${esc(t)}</pre>`;
+  $('rawViewCard').scrollIntoView({ behavior: 'smooth' });
+}
+$('rawList').onclick = async e => {
+  const d = e.target.closest('[data-desc]');
+  if (d) {
+    e.stopPropagation();
+    const meta = await readJSON('portal_data/raw_meta.json', {});
+    const v = prompt('이 파일 설명 (인제스트 시 AI 가 참고)', meta[d.dataset.desc]?.description || '');
+    if (v === null) return;
+    meta[d.dataset.desc] = { ...meta[d.dataset.desc], description: v.trim() };
+    await writeJSON('portal_data/raw_meta.json', meta); return loadRaw(rawCwd);
+  }
+  const tr = e.target.closest('tr[data-p]');
+  if (tr) showRaw(tr.dataset.p);
+};
+$('mkdirBtn').onclick = async () => {
+  const n = prompt('새 폴더 이름'); if (!n || /[\\/:*?"<>|]/.test(n)) return;
+  await dirAt(rawCwd + '/' + n.trim(), true); loadRaw(rawCwd);
+};
+$('memoBtn').onclick = () => { const c = $('memoCard'); c.style.display = c.style.display ? '' : 'none'; $('memoTitle').focus(); };
+$('memoSave').onclick = async () => {
+  const title = $('memoTitle').value.trim(); if (!title) return toast('제목을 입력하세요');
+  const p = `${rawCwd}/${today()}_${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
+  if (await exists(p) && !confirm('같은 이름이 있습니다. 덮어쓸까요?')) return;
+  await writeFile(p, `---\ntitle: ${title}\ncreated: ${today()}\ningest_status: pending\n---\n\n${$('memoBody').value}\n`);
+  $('memoTitle').value = $('memoBody').value = ''; $('memoCard').style.display = 'none';
+  toast('저장됨 — 인제스트 대기'); loadRaw(rawCwd);
+};
+let upQueue = [];
+function setUp(files) { upQueue = [...files]; $('upSel').textContent = upQueue.length ? upQueue.map(f => f.name).join(', ') : ''; }
+$('upFiles').onchange = e => setUp(e.target.files);
+const drop = $('drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); setUp(e.dataTransfer.files); };
+$('upBtn').onclick = async () => {
+  if (!upQueue.length) return toast('파일을 선택하세요');
+  const meta = await readJSON('portal_data/raw_meta.json', {});
+  const desc = $('upDesc').value.trim();
+  let n = 0;
+  for (const f of upQueue) {
+    const p = rawCwd + '/' + f.name;
+    if (await exists(p) && !confirm(`${f.name} 이(가) 이미 있습니다. 덮어쓸까요? (raw 는 원칙상 불변)`)) continue;
+    await writeFile(p, f);
+    meta[p] = { description: desc, uploaded_at: new Date().toISOString(), size: f.size };
+    n++;
+  }
+  await writeJSON('portal_data/raw_meta.json', meta);
+  $('upDesc').value = ''; $('upFiles').value = ''; setUp([]);
+  toast(`${n}개 업로드 — 인제스트 대기`); loadRaw(rawCwd);
+};
+
+// ── 위키 (트리 · 검색 · 뷰어) ──
+function treeHTML(items, base) {
+  return items.map(i => {
+    const p = base + '/' + i.name;
+    return i.kind === 'directory'
+      ? `<div><span class="tree-row" data-dir="${esc(p)}">▸ 📂 ${esc(i.name)}</span><div class="tree-children" style="display:none"></div></div>`
+      : `<span class="tree-row" data-file="${esc(p)}">📄 ${esc(i.name.replace(/\.md$/, ''))}</span>`;
+  }).join('');
+}
+async function toggleDir(row, open) {
+  const kids = row.nextElementSibling;
+  open ??= kids.style.display === 'none';
+  if (open && !kids.dataset.loaded) { kids.innerHTML = treeHTML(await list(row.dataset.dir), row.dataset.dir) || '<span class="muted">(비어있음)</span>'; kids.dataset.loaded = 1; }
+  kids.style.display = open ? '' : 'none';
+  row.innerHTML = row.innerHTML.replace(/^[▸▾]/, open ? '▾' : '▸');
+}
+let treeBuilt = false;
+async function loadWiki(path) {
+  if (!treeBuilt) {
+    $('wikiTree').innerHTML = treeHTML(await list('wiki'), 'wiki') +
+      `<div><span class="tree-row" data-dir="Output">▸ 📦 Output</span><div class="tree-children" style="display:none"></div></div>`;
+    treeBuilt = true;
+  }
+  if (!path) return;
+  // 파일 위치까지 트리 펼치기
+  const ps = parts(path);
+  for (let i = 1; i < ps.length; i++) {
+    const row = $('wikiTree').querySelector(`[data-dir="${CSS.escape(ps.slice(0, i).join('/'))}"]`);
+    if (row) await toggleDir(row, true);
+  }
+  document.querySelectorAll('#wikiTree .selected').forEach(el => el.classList.remove('selected'));
+  const sel = $('wikiTree').querySelector(`[data-file="${CSS.escape(path)}"]`);
+  if (sel) { sel.classList.add('selected'); sel.scrollIntoView({ block: 'nearest' }); }
+  if (!/\.[^/]+$/.test(path)) return;  // 폴더 딥링크
+  if (!/\.(md|txt|csv|json|ya?ml|png|jpe?g|gif|webp|svg)$/i.test(path)) return openBlob(path);
+  $('viewTitle').textContent = path; $('viewTitle').classList.remove('muted');
+  const body = $('viewBody');
+  try {
+    if (/\.(png|jpe?g|gif|webp|svg)$/i.test(path)) body.innerHTML = `<img src="${URL.createObjectURL(await getFile(path))}">`;
+    else if (path.endsWith('.md')) await renderMd(body, await readText(path), path);
+    else body.innerHTML = `<pre>${esc(await readText(path))}</pre>`;
+  } catch (e) { body.innerHTML = `<span class="muted">열기 실패: ${esc(e.message)}</span>`; }
+  window.scrollTo(0, 0);
+}
+$('wikiTree').onclick = e => {
+  const d = e.target.closest('[data-dir]'); if (d) return toggleDir(d);
+  const f = e.target.closest('[data-file]'); if (f) go('#wiki=' + encodeURIComponent(f.dataset.file));
+};
+// 전문 검색 — 파일 텍스트를 lastModified 기준으로 캐시
+const textCache = new Map();
+let savedTree = null, searchTimer = null;
+const hl = (t, q) => t.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => `<mark>${m}</mark>`);
+async function runSearch(q) {
+  const box = $('wikiTree');
+  if (q.length < 2) { if (savedTree !== null) { box.innerHTML = savedTree; savedTree = null; } return; }
+  if (savedTree === null) savedTree = box.innerHTML;
+  box.innerHTML = '<span class="muted">검색 중…</span>';
+  const ql = q.toLowerCase(), hits = [];
+  for (const f of (await wikiIndex(true)).files) {
+    if (!f.path.endsWith('.md')) continue;
+    const file = await f.h.getFile();
+    let c = textCache.get(f.path);
+    if (!c || c.t !== file.lastModified) textCache.set(f.path, c = { t: file.lastModified, text: await file.text() });
+    const title = basename(f.path).replace(/\.md$/, '');
+    const lines = c.text.split('\n').filter(l => l.toLowerCase().includes(ql));
+    const inTitle = title.toLowerCase().includes(ql);
+    if (inTitle || lines.length) hits.push({ path: f.path, title, lines: lines.slice(0, 2), score: (inTitle ? 100 : 0) + lines.length });
+  }
+  hits.sort((a, b) => b.score - a.score);
+  box.innerHTML = hits.slice(0, 60).map(h => `<div class="tree-row" data-file="${esc(h.path)}" style="white-space:normal;border-bottom:1px solid var(--border)">
+      📄 <b>${hl(esc(h.title), q)}</b> <span class="muted">${esc(dirname(h.path))}</span>
+      ${h.lines.map(l => `<div class="muted">${hl(esc(l.trim().slice(0, 160)), q)}</div>`).join('')}</div>`).join('')
+    + `<div class="muted" style="padding:.4rem">${hits.length}건</div>`;
+}
+$('wikiSearch').oninput = e => { clearTimeout(searchTimer); searchTimer = setTimeout(() => runSearch(e.target.value.trim()), 300); };
+$('wikiSearch').onkeydown = e => { if (e.key === 'Escape') { e.target.value = ''; runSearch(''); } };
+
+// ── 그래프 (graphify 빌드 결과) ──
+$('graphBtn').onclick = async () => {
+  if (await exists('graphify-out/graph.html')) openBlob('graphify-out/graph.html');
+  else toast('그래프 없음 — Claude Code 에서 /graphify wiki/ 를 먼저 실행하세요');
+};
+
+// ── 이슈 (portal_data/issues.json) ──
+const ISSUES = 'portal_data/issues.json';
+const STATUS = { open: '열림', in_progress: '진행중', done: '완료' };
+async function loadIssues() {
+  const all = await readJSON(ISSUES, []);
+  const shown = all.filter(i => $('isShowDone').checked || i.status !== 'done').sort((a, b) => (a.due || '9') .localeCompare(b.due || '9'));
+  const box = $('issueList');
+  box.innerHTML = shown.map(i => {
+    const late = i.due && i.status !== 'done' && i.due < today();
+    return `<div class="card" data-id="${i.id}">
+      <div class="row" style="align-items:center">
+        <div style="flex:4"><b>#${i.id} ${esc(i.title)}</b> ${i.due ? `<span class="badge ${late ? 'warn' : ''}">기한 ${esc(i.due)}${late ? ' 초과' : ''}</span>` : ''}
+          <div class="muted">${fmtTime(i.created)}</div></div>
+        <select data-act="status" style="flex:none;width:auto">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${i.status === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+        <button class="btn danger sm" data-act="del" style="flex:none;min-width:0">삭제</button>
+      </div>
+      <div class="md-body" data-body></div></div>`;
+  }).join('') || '<div class="card muted">이슈 없음</div>';
+  for (const i of shown) if (i.body) renderMd(box.querySelector(`[data-id="${i.id}"] [data-body]`), i.body, 'portal_data/issues.json');
+}
+async function saveIssues(fn) { const all = await readJSON(ISSUES, []); fn(all); await writeJSON(ISSUES, all); loadIssues(); }
+$('isAdd').onclick = async () => {
+  const title = $('isTitle').value.trim(); if (!title) return toast('제목을 입력하세요');
+  await saveIssues(all => all.push({ id: Math.max(0, ...all.map(i => i.id)) + 1, title, body: $('isBody').value.trim(),
+    due: $('isDue').value, status: 'open', created: Date.now() }));
+  $('isTitle').value = $('isBody').value = $('isDue').value = '';
+};
+$('isShowDone').onchange = loadIssues;
+$('issueList').onchange = e => {
+  const s = e.target.closest('[data-act="status"]'); if (!s) return;
+  const id = +e.target.closest('[data-id]').dataset.id;
+  saveIssues(all => { all.find(i => i.id === id).status = s.value; });
+};
+$('issueList').onclick = e => {
+  if (!e.target.closest('[data-act="del"]') || !confirm('삭제할까요?')) return;
+  const id = +e.target.closest('[data-id]').dataset.id;
+  saveIssues(all => all.splice(all.findIndex(i => i.id === id), 1));
+};
+</script>
+</body>
+</html>

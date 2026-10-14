@@ -1,0 +1,13 @@
+# 개인 자료 — 템플릿 뼈대만 커밋
+raw/*
+!raw/CLAUDE.md
+!raw/.gitkeep
+wiki/*/*
+!wiki/*/.gitkeep
+Output/*
+!Output/.gitkeep
+portal_data/*
+!portal_data/.gitkeep
+graphify-out/
+ingest.log
+__pycache__/
