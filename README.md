@@ -1,3 +1,5 @@
+![로컬 위키 포탈 — 내 PC 속 도서관](docs/banner.jpg)
+
 # 📚 로컬 위키 포탈 (wiki_local)
 
 **서버 없이, 리눅스 몰라도** — Windows/Mac PC 한 대에서 **Claude 데스크탑 앱의 Code 모드**로 돌리는
@@ -57,3 +59,4 @@
 
 ## 라이선스
 MIT. `assets/marked.min.js` 는 [marked](https://github.com/markedjs/marked) (MIT).
+상단 배너: "[Indiana Supreme Court Law Library bookshelves](https://commons.wikimedia.org/w/index.php?curid=153694365)" by LingLass, [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (Openverse 경유, 잘라서 사용).
