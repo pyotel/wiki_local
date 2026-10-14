@@ -27,6 +27,7 @@
 - [Claude 데스크탑 앱](https://claude.ai/download) (Pro/Max 구독, **Code** 탭 사용) — 또는 Claude Code CLI
 - Microsoft Edge 또는 Google Chrome
 - (선택) Python 3 — PDF·PPT·엑셀·HWP 추출용: `pip install pypdf python-pptx openpyxl pyhwp`
+- (선택) [graphify](https://github.com/safishamsi/graphify) — 지식 그래프: `pip install graphifyy` 후 `graphify install --platform claude` (Claude Code `/graphify` 스킬 설치)
 
 ## 시작
 1. 이 저장소를 내려받아 원하는 위치에 둔다 (GitHub → Code → Download ZIP → 압축 해제, 예: `D:\내위키`)
@@ -45,7 +46,7 @@
 - 📚 **위키** — 폴더 트리, 전문 검색, 마크다운 뷰어 (frontmatter 칩·`[[위키링크]]`·`![[이미지]]`·상대 링크), `#wiki=경로` 딥링크·뒤로가기
 - 📅 **일정** — 월간 달력, 일정 등록·수정(여러 날·시간·장소), 미완료 이슈 기한 함께 표시, 홈에 14일 이내 일정, `.ics` 내보내기(구글·아웃룩 캘린더 가져오기) (`portal_data/schedule.json` — `/ingest` 가 공고 마감 등을 자동 등록하기도 함)
 - 🐛 **이슈** — 기한·상태 관리 (`portal_data/issues.json`, AI 에게 맡길 일도 여기에)
-- 🕸 **그래프** — `graphify-out/graph.html` 이 있으면 열기
+- 🕸 **그래프** — `graphify-out/graph.html` 을 포탈 안에 임베드 + 허브 노드·커뮤니티 목록 (노드 클릭 → 그래프 포커스, 📄 → 위키 페이지), `GRAPH_REPORT.md` 보기
 
 ## AI 쪽 (Claude Code)
 - 규칙: `CLAUDE.md` (루트), `wiki/CLAUDE.md`, `raw/CLAUDE.md` — Code 모드가 폴더를 열면 자동으로 읽는다

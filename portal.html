@@ -123,10 +123,10 @@
     <button data-tab="home">🏠 홈</button>
     <button data-tab="raw">📁 Raw</button>
     <button data-tab="wiki">📚 위키</button>
+    <button data-tab="graph">🕸 그래프</button>
     <button data-tab="schedule">📅 일정</button>
     <button data-tab="issues">🐛 이슈</button>
   </nav>
-  <button class="btn ghost sm" id="graphBtn">🕸 그래프</button>
   <button class="btn ghost sm" id="switchBtn">폴더 변경</button>
 </header>
 <main>
@@ -178,6 +178,31 @@
       </div>
       <div class="main card"><h2 id="viewTitle" class="muted">왼쪽에서 페이지를 선택하세요</h2><div class="md-body" id="viewBody"></div></div>
     </div>
+  </section>
+
+  <section class="tab" id="tab-graph">
+    <div class="card" id="graphEmpty" style="display:none">
+      <h2>🕸 그래프 없음</h2>
+      <p class="muted">Claude Code 에서 <code>/graphify wiki/</code> 를 실행하면 <code>graphify-out/graph.html</code> 이 생기고 여기에 표시됩니다. (<code>/ingest</code> 마지막 단계에서도 자동 실행)</p>
+    </div>
+    <div class="split" id="graphWrap" style="display:none">
+      <div class="main card" style="padding:.5rem">
+        <iframe id="graphFrame" title="지식 그래프" style="width:100%;height:78vh;border:0;border-radius:8px;background:var(--bg)"></iframe>
+      </div>
+      <div class="side">
+        <div class="card">
+          <h2>🕸 지식 그래프</h2>
+          <div id="graphStats" class="muted"></div>
+          <p><button class="btn ghost sm" id="graphOpen">새 탭으로 열기</button>
+            <button class="btn ghost sm" id="graphReportBtn">📋 리포트</button>
+            <button class="btn ghost sm" id="graphReload">↻</button></p>
+        </div>
+        <div class="card"><h2>⭐ 허브 노드</h2><div id="graphGods"></div></div>
+        <div class="card"><h2>🧩 커뮤니티</h2><div id="graphComms"></div>
+          <p class="muted">노드 클릭 → 그래프에서 포커스 · 📄 → 위키 페이지</p></div>
+      </div>
+    </div>
+    <div class="card" id="graphReportCard" style="display:none"><h2>📋 GRAPH_REPORT.md</h2><div class="md-body" id="graphReport"></div></div>
   </section>
 
   <section class="tab" id="tab-schedule">
@@ -319,11 +344,11 @@ function go(hash) { if (location.hash !== hash) location.hash = hash; else route
 window.addEventListener('hashchange', () => ROOT && route());
 function route() {
   const m = location.hash.match(/^#(\w+)(?:=(.*))?$/) || [, 'home'];
-  const tab = ['home', 'raw', 'wiki', 'schedule', 'issues'].includes(m[1]) ? m[1] : 'home';
+  const tab = ['home', 'raw', 'wiki', 'graph', 'schedule', 'issues'].includes(m[1]) ? m[1] : 'home';
   const arg = m[2] ? decodeURIComponent(m[2]) : '';
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
-  ({ home: loadHome, raw: () => loadRaw(arg || 'raw'), wiki: () => loadWiki(arg), schedule: () => loadSchedule(arg), issues: loadIssues })[tab]();
+  ({ home: loadHome, raw: () => loadRaw(arg || 'raw'), wiki: () => loadWiki(arg), graph: loadGraph, schedule: () => loadSchedule(arg), issues: loadIssues })[tab]();
 }
 document.querySelector('nav').onclick = e => { const b = e.target.closest('button'); if (b) go('#' + b.dataset.tab); };
 
@@ -595,10 +620,54 @@ async function runSearch(q) {
 $('wikiSearch').oninput = e => { clearTimeout(searchTimer); searchTimer = setTimeout(() => runSearch(e.target.value.trim()), 300); };
 $('wikiSearch').onkeydown = e => { if (e.key === 'Escape') { e.target.value = ''; runSearch(''); } };
 
-// ── 그래프 (graphify 빌드 결과) ──
-$('graphBtn').onclick = async () => {
-  if (await exists('graphify-out/graph.html')) openBlob('graphify-out/graph.html');
-  else toast('그래프 없음 — Claude Code 에서 /graphify wiki/ 를 먼저 실행하세요');
+// ── 그래프 (graphify 빌드 결과: graph.html 임베드 + graph.json 으로 허브·커뮤니티 목록) ──
+let graphLoaded = 0;  // 임베드한 graph.html 의 lastModified — 바뀌었을 때만 다시 그림
+async function loadGraph(force) {
+  let html;
+  try { html = await getFile('graphify-out/graph.html'); }
+  catch { $('graphEmpty').style.display = ''; $('graphWrap').style.display = 'none'; return; }
+  $('graphEmpty').style.display = 'none'; $('graphWrap').style.display = '';
+  if (force !== true && graphLoaded === html.lastModified) return;
+  graphLoaded = html.lastModified;
+  const fr = $('graphFrame');
+  if (fr.src) URL.revokeObjectURL(fr.src);
+  fr.src = URL.createObjectURL(html);
+  $('graphReportCard').style.display = 'none';
+  const g = await readJSON('graphify-out/graph.json', null);
+  if (!g) { $('graphStats').textContent = `graph.json 없음 · ${fmtTime(html.lastModified)} 빌드`; $('graphGods').innerHTML = $('graphComms').innerHTML = ''; return; }
+  const deg = new Map();
+  for (const l of g.links || []) for (const k of [l.source, l.target]) deg.set(k, (deg.get(k) || 0) + 1);
+  const comms = new Map();
+  for (const n of g.nodes) {
+    const k = n.community ?? -1;
+    if (!comms.has(k)) comms.set(k, { name: n.community_name || `Community ${k}`, nodes: [] });
+    comms.get(k).nodes.push(n);
+  }
+  $('graphStats').innerHTML = `노드 ${g.nodes.length} · 엣지 ${(g.links || []).length} · 커뮤니티 ${comms.size}<br>${fmtTime(html.lastModified)} 빌드`;
+  const row = n => `<span class="tree-row" data-node="${esc(n.id)}" title="${esc(n.rationale || n.source_file || '')}">● ${esc(n.label)}
+    <span class="muted">${deg.get(n.id) || 0}</span>${n.source_file?.endsWith('.md') ? ` <a data-page="${esc('wiki/' + n.source_file)}" title="${esc(n.source_file)}">📄</a>` : ''}</span>`;
+  const byDeg = (a, b) => (deg.get(b.id) || 0) - (deg.get(a.id) || 0);
+  $('graphGods').innerHTML = [...g.nodes].sort(byDeg).slice(0, 8).map(row).join('');
+  $('graphComms').innerHTML = [...comms.values()].sort((a, b) => b.nodes.length - a.nodes.length).map(c =>
+    `<details><summary class="tree-row"><b>${esc(c.name)}</b> <span class="muted">${c.nodes.length}</span></summary>
+     <div class="tree-children">${c.nodes.sort(byDeg).map(row).join('')}</div></details>`).join('');
+}
+// 노드 클릭 → iframe 안 그래프에서 포커스 (graph.html 의 focusNode, 접근 불가하면 무시)
+$('graphWrap').onclick = e => {
+  const pg = e.target.closest('[data-page]');
+  if (pg) { e.stopPropagation(); return openPath(pg.dataset.page); }
+  const nd = e.target.closest('[data-node]'); if (!nd) return;
+  try { $('graphFrame').contentWindow.focusNode(nd.dataset.node); }
+  catch { toast('그래프 포커스 불가 — 📄 로 위키 페이지를 여세요'); }
+};
+$('graphOpen').onclick = () => openBlob('graphify-out/graph.html');
+$('graphReload').onclick = () => loadGraph(true);
+$('graphReportBtn').onclick = async () => {
+  const c = $('graphReportCard');
+  if (c.style.display === '') { c.style.display = 'none'; return; }
+  try { await renderMd($('graphReport'), await readText('graphify-out/GRAPH_REPORT.md'), 'graphify-out/GRAPH_REPORT.md'); }
+  catch { $('graphReport').innerHTML = '<span class="muted">GRAPH_REPORT.md 없음</span>'; }
+  c.style.display = ''; c.scrollIntoView({ behavior: 'smooth' });
 };
 
 // ── 이슈 (portal_data/issues.json) ──

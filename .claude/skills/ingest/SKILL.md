@@ -140,10 +140,12 @@ notes: <한 줄 요약>
 ingest 가 wiki/ 페이지를 변경했으므로 그래프도 동기화해야 함. **/graphify 스킬을 그대로 호출해 wiki/ 를 다시 빌드한다.**
 
 - 이 단계는 **기본값**. 사용자가 "graphify 빼고", "그래프 갱신 X" 등 명시적으로 거부하지 않는 한 항상 실행.
-- 호출 방식: 본 ingest 작업 끝에 `/graphify` 스킬을 그대로 invoke (인자 없으면 wiki/ 가 기본 타깃 — 루트 [`CLAUDE.md`](../../../CLAUDE.md) 참조).
+- 호출 방식: 본 ingest 작업 끝에 `/graphify wiki` 로 invoke — **경로 `wiki` 를 반드시 명시** (인자 없으면 볼트 전체 `.` 가 대상이 됨).
+- 빌드 전 `graphify-out/.graphify_build.json` 이 루트 [`CLAUDE.md`](../../../CLAUDE.md) 「포탈」 절의 설정(gitignore: false + 메타 제외)인지 확인. 아니면 위키 페이지가 0개로 잡힌다.
+- semantic 추출 서브에이전트 프롬프트 앞에 `wiki/_canonical_ids.md` 표를 붙인다.
 - 캐시 덕분에 변경된 페이지만 재추출되므로 비용 최소.
-- 빌드 결과는 `graphify-out/graph.html` — 포탈.html 의 🕸 그래프 버튼이 바로 연다.
-- graphify 가 설치돼 있지 않으면 (`pip install graphifyy`) 이 단계는 건너뛰고 보고에 명시.
+- 빌드 결과는 `graphify-out/graph.html` — 포탈의 🕸 그래프 탭이 바로 보여준다.
+- graphify 가 설치돼 있지 않으면 (`pip install graphifyy && graphify install --platform claude`) 이 단계는 건너뛰고 보고에 명시.
 - 빌드 실패 시 ingest 자체는 성공으로 보고하되 graphify 실패는 명시.
 
 ### 9. 사용자에게 짧은 결과 보고

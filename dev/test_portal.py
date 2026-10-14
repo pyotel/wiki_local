@@ -79,6 +79,16 @@ with sync_playwright() as p:
     pg.on('dialog', lambda dg: dg.accept())
     pg.click('#cal [data-ev="1"]'); pg.click('#seDel'); pg.wait_for_timeout(500)
     assert pg.evaluate("readText('portal_data/schedule.json')").strip() == '[]'
+    # graph: 빌드 결과 없으면 안내, 있으면 iframe + 커뮤니티 목록
+    pg.evaluate("go('#graph')"); pg.wait_for_timeout(300); assert pg.is_visible('#graphEmpty')
+    pg.evaluate("""Promise.all([writeFile('graphify-out/graph.html', '<html><body><script>function focusNode(id){document.title=id}</script></body></html>'),
+      writeJSON('graphify-out/graph.json', {nodes: [{id: 'rag', label: 'RAG', community: 0, community_name: '검색', source_file: 'concepts/RAG.md'},
+        {id: 'llm', label: 'LLM', community: 0, community_name: '검색', source_file: 'entities/LLM.md'}], links: [{source: 'rag', target: 'llm'}]})])""")
+    pg.evaluate("go('#home')"); pg.wait_for_timeout(200); pg.evaluate("go('#graph')"); pg.wait_for_timeout(600)
+    assert pg.is_visible('#graphFrame') and '노드 2' in pg.inner_text('#graphStats') and '검색' in pg.inner_text('#graphComms')
+    pg.click('#graphGods [data-node="rag"]'); pg.wait_for_timeout(200)
+    assert pg.frame_locator('#graphFrame').locator('body').count() == 1 and pg.evaluate("$('graphFrame').contentDocument.title") == 'rag'
+    pg.click('#graphGods [data-node="rag"] [data-page]'); pg.wait_for_timeout(400); assert pg.inner_text('#viewTitle') == 'wiki/concepts/RAG.md'
     pg.evaluate("go('#home')"); pg.wait_for_timeout(500)
     print('STATS2', pg.inner_text('#stats').replace('\n', ' '))
     pg.screenshot(path=sys.argv[2], full_page=True)

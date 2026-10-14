@@ -33,7 +33,9 @@ last_updated: 2026-10-14
 - `open-portal.bat` 더블클릭 → Edge 로 `portal.html` 열림 → 이 폴더 선택 (최초 1회, 이후 기억)
 - 브라우저의 File System Access API 로 이 폴더를 **직접** 읽고 쓴다. 백엔드·포트·Docker 없음.
 - 포탈이 쓰는 파일: `raw/**` (업로드·메모), `portal_data/raw_meta.json`, `portal_data/issues.json`, `portal_data/schedule.json` — 그 외엔 읽기만.
-- 그래프: `graphify-out/graph.html` 이 있으면 🕸 버튼으로 연다.
+- 그래프: 🕸 그래프 탭이 `graphify-out/graph.html` 을 임베드하고 `graph.json` 으로 허브·커뮤니티 목록을 보여준다.
+- **graphify 빌드 설정** (`graphify-out/.graphify_build.json`): `.gitignore` 가 개인 자료(`wiki/*/*`)를 제외하므로 graphify 기본값(gitignore 존중)이면 위키 페이지가 0개로 잡힌다. 반드시
+  `{"gitignore": false, "excludes": ["CLAUDE.md", "_*.md", "index.md", "log.md"]}` 로 두고 `/graphify wiki` 로 빌드 (메타 파일 제외). `graphify-out/` 을 지웠다면 다시 만든다.
 
 ## 일정 (portal_data/schedule.json)
 
