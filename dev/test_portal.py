@@ -58,6 +58,27 @@ with sync_playwright() as p:
     pg.fill('#isTitle', '첫 이슈'); pg.fill('#isBody', '**굵게**'); pg.fill('#isDue', '2020-01-01'); pg.click('#isAdd'); pg.wait_for_timeout(400)
     t = pg.inner_text('#issueList'); assert '첫 이슈' in t and '초과' in t and pg.inner_html('#issueList').count('<strong>굵게</strong>') == 1
     pg.select_option('#issueList select', 'done'); pg.wait_for_timeout(400); assert '이슈 없음' in pg.inner_text('#issueList')
+    # schedule: 빈 칸 클릭 → 등록 → 칩 클릭 → 수정 → 삭제, 이슈 기한 표시, 월 이동, .ics
+    pg.evaluate("writeJSON(ISSUES, [{id: 7, title: '기한이슈', due: addDays(today(), 2), status: 'open', created: 1}])")
+    pg.evaluate("go('#schedule')"); pg.wait_for_timeout(400)
+    d = pg.evaluate("addDays(today(), 3)")
+    assert '🐛 기한이슈' in pg.inner_text('#cal')
+    pg.click(f'#cal [data-day="{d}"]'); assert pg.input_value('#seDate') == d
+    pg.fill('#seTitle', '공고 마감'); pg.fill('#seTime', '18:00'); pg.fill('#sePlace', '온라인'); pg.click('#seSave'); pg.wait_for_timeout(500)
+    sched = json.loads(pg.evaluate("readText('portal_data/schedule.json')")); print('SCHED', sched)
+    assert sched[0]['title'] == '공고 마감' and sched[0]['by'] == 'user' and '18:00 공고 마감' in pg.inner_text(f'#cal [data-day="{d}"]')
+    assert 'D-3' in pg.inner_text('#schedUpcoming')
+    pg.click('#cal [data-ev="1"]'); assert pg.input_value('#seTitle') == '공고 마감' and pg.is_visible('#seDel')
+    pg.fill('#seTitle', '공고 마감(수정)'); pg.click('#seSave'); pg.wait_for_timeout(500)
+    assert '공고 마감(수정)' in pg.inner_text('#cal') and len(json.loads(pg.evaluate("readText('portal_data/schedule.json')"))) == 1
+    ym = pg.evaluate("calMonth"); pg.click('[data-cal="1"]'); pg.wait_for_timeout(300)
+    assert pg.evaluate("calMonth") != ym and '#schedule=' in pg.url
+    pg.click('[data-cal="0"]'); pg.wait_for_timeout(300)
+    with pg.expect_download() as dl: pg.click('#icsBtn')
+    ics = open(dl.value.path(), encoding='utf-8').read(); assert 'SUMMARY:공고 마감(수정)' in ics and 'LOCATION:온라인' in ics, ics
+    pg.on('dialog', lambda dg: dg.accept())
+    pg.click('#cal [data-ev="1"]'); pg.click('#seDel'); pg.wait_for_timeout(500)
+    assert pg.evaluate("readText('portal_data/schedule.json')").strip() == '[]'
     pg.evaluate("go('#home')"); pg.wait_for_timeout(500)
     print('STATS2', pg.inner_text('#stats').replace('\n', ' '))
     pg.screenshot(path=sys.argv[2], full_page=True)

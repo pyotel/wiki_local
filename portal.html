@@ -89,6 +89,22 @@
     padding: .55rem 1rem; border-radius: 8px; font-size: .86rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
   #toast.show { opacity: .92; }
   #gate { max-width: 560px; margin: 12vh auto; text-align: center; }
+  .row.tight > * { min-width: 110px; }
+  .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); margin-top: .7rem; }
+  .cal > div { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: 96px; padding: .25rem .3rem; font-size: .76rem; cursor: pointer; min-width: 0; }
+  .cal > div:hover { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+  .cal > .dow { min-height: 0; text-align: center; font-weight: 600; color: var(--fg-muted); background: var(--bg); cursor: default; }
+  .cal > .out { opacity: .45; }
+  .cal .dnum { display: inline-block; min-width: 1.4rem; text-align: center; border-radius: 99px; font-weight: 600; }
+  .cal > .sun .dnum, .cal > .dow:first-child { color: var(--error); }
+  .cal > .sat .dnum { color: var(--accent); }
+  .cal > .today .dnum { background: var(--accent); color: #fff; }
+  .ev { display: block; background: var(--accent-soft); color: var(--accent); border-radius: 4px; padding: .05rem .3rem; margin-top: .15rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev.issue { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+  .ev.ai { box-shadow: inset 2px 0 0 var(--ok); }
+  .ev:hover { filter: brightness(.95); }
+  @media (max-width: 820px) { .cal > div { min-height: 64px; padding: .15rem; } .ev { font-size: .66rem; padding: 0 .2rem; } }
 </style>
 </head>
 <body>
@@ -107,6 +123,7 @@
     <button data-tab="home">🏠 홈</button>
     <button data-tab="raw">📁 Raw</button>
     <button data-tab="wiki">📚 위키</button>
+    <button data-tab="schedule">📅 일정</button>
     <button data-tab="issues">🐛 이슈</button>
   </nav>
   <button class="btn ghost sm" id="graphBtn">🕸 그래프</button>
@@ -117,6 +134,7 @@
     <div class="stats" id="stats"></div>
     <div class="split" style="margin-top:1rem">
       <div class="main">
+        <div class="card"><h2>📅 다가오는 일정 <span class="muted">14일 · 이슈 기한 포함</span></h2><div id="homeAgenda"></div></div>
         <div class="card"><h2>⏳ 인제스트 대기</h2><div id="pendingList"></div>
           <p class="muted">대기 파일은 <code>ingest.bat</code> 실행 또는 Claude Code 에서 <code>/ingest</code> 로 위키에 반영됩니다.</p></div>
         <div class="card"><h2>📝 최근 작업 로그 <span class="muted">wiki/log.md</span></h2><div class="md-body" id="logBody"></div></div>
@@ -159,6 +177,39 @@
         <div id="wikiTree" style="margin-top:.6rem"></div>
       </div>
       <div class="main card"><h2 id="viewTitle" class="muted">왼쪽에서 페이지를 선택하세요</h2><div class="md-body" id="viewBody"></div></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-schedule">
+    <div class="split">
+      <div class="main card">
+        <div class="row" style="align-items:center">
+          <h2 id="calTitle" style="margin:0"></h2>
+          <div style="flex:none;min-width:0">
+            <button class="btn ghost sm" data-cal="-1">◀</button>
+            <button class="btn ghost sm" data-cal="0">오늘</button>
+            <button class="btn ghost sm" data-cal="1">▶</button>
+            <button class="btn ghost sm" id="icsBtn" title="구글·아웃룩 캘린더로 가져가기">📤 .ics</button>
+          </div>
+        </div>
+        <div class="cal" id="cal"></div>
+        <p class="muted">빈 칸 클릭 → 그 날짜로 새 일정 · 일정 클릭 → 수정 · 🐛 는 미완료 이슈 기한 · 초록 줄은 AI 가 등록한 일정</p>
+      </div>
+      <div class="side">
+        <div class="card">
+          <h2 id="seHead">새 일정</h2>
+          <label>제목</label><input id="seTitle">
+          <div class="row tight"><div><label>날짜</label><input type="date" id="seDate"></div>
+            <div><label>종료일 (선택)</label><input type="date" id="seEnd"></div></div>
+          <div class="row tight"><div><label>시간 (선택)</label><input type="time" id="seTime"></div>
+            <div><label>장소 (선택)</label><input id="sePlace"></div></div>
+          <label>메모 (markdown)</label><textarea id="seNote" rows="3"></textarea>
+          <div class="md-body muted" id="seMeta"></div>
+          <p><button class="btn" id="seSave">등록</button> <button class="btn ghost" id="seNew">새로</button>
+            <button class="btn danger" id="seDel" style="display:none">삭제</button></p>
+        </div>
+        <div class="card"><h2>⏰ 다가오는 일정 <span class="muted">30일</span></h2><div id="schedUpcoming"></div></div>
+      </div>
     </div>
   </section>
 
@@ -268,11 +319,11 @@ function go(hash) { if (location.hash !== hash) location.hash = hash; else route
 window.addEventListener('hashchange', () => ROOT && route());
 function route() {
   const m = location.hash.match(/^#(\w+)(?:=(.*))?$/) || [, 'home'];
-  const tab = ['home', 'raw', 'wiki', 'issues'].includes(m[1]) ? m[1] : 'home';
+  const tab = ['home', 'raw', 'wiki', 'schedule', 'issues'].includes(m[1]) ? m[1] : 'home';
   const arg = m[2] ? decodeURIComponent(m[2]) : '';
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
-  ({ home: loadHome, raw: () => loadRaw(arg || 'raw'), wiki: () => loadWiki(arg), issues: loadIssues })[tab]();
+  ({ home: loadHome, raw: () => loadRaw(arg || 'raw'), wiki: () => loadWiki(arg), schedule: () => loadSchedule(arg), issues: loadIssues })[tab]();
 }
 document.querySelector('nav').onclick = e => { const b = e.target.closest('button'); if (b) go('#' + b.dataset.tab); };
 
@@ -355,9 +406,10 @@ async function rawStatus() {
 }
 async function loadHome() {
   treeBuilt = false;  // 홈 = 새로고침: 인제스트로 생긴 새 페이지를 트리에 반영
-  const [wi, rs, issues, log] = await Promise.all([
-    wikiIndex(true), rawStatus(), readJSON('portal_data/issues.json', []), readText('wiki/log.md').catch(() => ''),
+  const [wi, rs, issues, log, ag] = await Promise.all([
+    wikiIndex(true), rawStatus(), readJSON('portal_data/issues.json', []), readText('wiki/log.md').catch(() => ''), agenda(),
   ]);
+  const soon = upcoming(ag, 14);
   const pages = wi.files.filter(f => /^wiki\/[^_].*\.md$/.test(f.path) && !/\/(_|CLAUDE\.md|index\.md|log\.md)/.test(f.path));
   const cnt = d => pages.filter(f => f.path.startsWith('wiki/' + d + '/')).length;
   const stat = (n, label, hash) => `<div class="stat" style="cursor:pointer" onclick="go('${hash}')"><b>${n}</b><span class="muted">${label}</span></div>`;
@@ -365,7 +417,9 @@ async function loadHome() {
     ['sources', 'entities', 'concepts', 'topics', 'syntheses'].map(d => stat(cnt(d), d, '#wiki=wiki/' + d)).join('') +
     stat(rs.files.length, 'raw 원본', '#raw') +
     stat(rs.pending.size, '인제스트 대기', '#raw') +
+    stat(soon.length, '다가오는 일정 (14일)', '#schedule') +
     stat(issues.filter(i => i.status !== 'done').length, '미완료 이슈', '#issues');
+  $('homeAgenda').innerHTML = agendaTable(soon) || '<span class="muted">14일 안에 일정 없음</span>';
   $('pendingList').innerHTML = rs.pending.size
     ? '<table class="list"><tbody>' + [...rs.pending].map(p => `<tr class="click" onclick="go('#raw=${esc(encodeURIComponent(dirname(p)))}')"><td>📄 ${esc(p)}</td></tr>`).join('') + '</tbody></table>'
     : '<span class="muted">대기 0건 — 모두 위키에 반영됨</span>';
@@ -584,6 +638,133 @@ $('issueList').onclick = e => {
   if (!e.target.closest('[data-act="del"]') || !confirm('삭제할까요?')) return;
   const id = +e.target.closest('[data-id]').dataset.id;
   saveIssues(all => all.splice(all.findIndex(i => i.id === id), 1));
+};
+
+// ── 일정 (portal_data/schedule.json — 미완료 이슈 기한도 함께 표시) ──
+const SCHED = 'portal_data/schedule.json';
+const WD = ['일', '월', '화', '수', '목', '금', '토'];
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const addDays = (s, n) => { const d = new Date(s + 'T00:00'); d.setDate(d.getDate() + n); return ymd(d); };
+const shiftMonth = (ym, n) => ymd(new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + n, 1)).slice(0, 7);
+const evEnd = e => e.end && e.end > e.date ? e.end : e.date;
+const fmtDay = s => `${+s.slice(5, 7)}/${+s.slice(8)} (${WD[new Date(s + 'T00:00').getDay()]})`;
+const evLabel = e => (e.issue ? '🐛 ' : '') + (e.time ? e.time + ' ' : '') + e.title;
+const byWhen = (a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '');
+const evAttr = e => e.issue ? `data-issue="${e.issue}"` : `data-ev="${e.id}"`;
+let calMonth = today().slice(0, 7), schedEdit = null;
+
+async function agenda() {
+  const [evs, issues] = await Promise.all([readJSON(SCHED, []), readJSON(ISSUES, [])]);
+  return [...evs, ...issues.filter(i => i.due && i.status !== 'done').map(i => ({ issue: i.id, title: i.title, date: i.due }))];
+}
+function upcoming(items, days) {
+  const t = today(), until = addDays(t, days);
+  return items.filter(e => evEnd(e) >= t && e.date <= until).sort(byWhen);
+}
+function agendaTable(items) {
+  const t = today();
+  return items.length ? '<table class="list"><tbody>' + items.map(e => {
+    const diff = Math.round((new Date(e.date) - new Date(t)) / 864e5);
+    const dd = diff > 0 ? 'D-' + diff : evEnd(e) === t ? 'D-day' : '진행중';
+    return `<tr class="click" ${evAttr(e)} data-date="${e.date}"><td>
+      <span class="badge ${diff <= 3 ? 'warn' : ''}">${dd}</span> ${esc(evLabel(e))}
+      <div class="muted">${fmtDay(e.date)}${e.end && e.end > e.date ? ' ~ ' + fmtDay(e.end) : ''}${e.place ? ' · 📍 ' + esc(e.place) : ''}</div></td></tr>`;
+  }).join('') + '</tbody></table>' : '';
+}
+
+async function loadSchedule(arg) {
+  if (/^\d{4}-\d{2}$/.test(arg)) calMonth = arg;
+  const items = await agenda(), t = today();
+  const [y, m] = calMonth.split('-').map(Number);
+  $('calTitle').textContent = `${y}년 ${m}월`;
+  const first = new Date(y, m - 1, 1), start = addDays(ymd(first), -first.getDay());
+  const cells = Math.ceil((first.getDay() + new Date(y, m, 0).getDate()) / 7) * 7;
+  let html = WD.map(w => `<div class="dow">${w}</div>`).join('');
+  for (let i = 0; i < cells; i++) {
+    const d = addDays(start, i);
+    const cls = [d.slice(0, 7) !== calMonth && 'out', d === t && 'today', i % 7 === 0 && 'sun', i % 7 === 6 && 'sat'].filter(Boolean).join(' ');
+    const evs = items.filter(e => e.date <= d && d <= evEnd(e)).sort(byWhen);
+    html += `<div class="${cls}" data-day="${d}"><span class="dnum">${+d.slice(8)}</span>` + evs.map(e =>
+      `<span class="ev${e.issue ? ' issue' : ''}${e.by === 'ai' ? ' ai' : ''}" ${evAttr(e)} title="${esc(evLabel(e) + (e.place ? ' @ ' + e.place : ''))}">${esc(evLabel(e))}</span>`).join('') + '</div>';
+  }
+  $('cal').innerHTML = html;
+  $('schedUpcoming').innerHTML = agendaTable(upcoming(items, 30)) || '<span class="muted">30일 안에 일정 없음</span>';
+}
+function editEvent(e) {
+  schedEdit = e ? e.id : null;
+  $('seHead').textContent = e ? `일정 수정 #${e.id}` : '새 일정';
+  $('seSave').textContent = e ? '저장' : '등록';
+  $('seDel').style.display = e ? '' : 'none';
+  $('seTitle').value = e?.title || ''; $('seDate').value = e?.date || ''; $('seEnd').value = e?.end || '';
+  $('seTime').value = e?.time || ''; $('sePlace').value = e?.place || ''; $('seNote').value = e?.note || '';
+  $('seMeta').innerHTML = !e ? '' : (e.by === 'ai' ? '🤖 AI 등록 ' : '') +
+    (e.source ? `· 근거 <a data-path="${esc(e.source)}">${esc(e.source)}</a>` : '');
+}
+async function openEvent(id) {
+  const e = (await readJSON(SCHED, [])).find(x => x.id === id);
+  if (!e) return toast('이미 삭제된 일정');
+  editEvent(e); $('seTitle').focus();
+}
+$('cal').onclick = e => {
+  if (e.target.closest('[data-issue]')) return go('#issues');
+  const ev = e.target.closest('[data-ev]'); if (ev) return openEvent(+ev.dataset.ev);
+  const day = e.target.closest('[data-day]');
+  if (day) { editEvent(null); $('seDate').value = day.dataset.day; $('seTitle').focus(); }
+};
+$('schedUpcoming').onclick = e => {
+  if (e.target.closest('[data-issue]')) return go('#issues');
+  const ev = e.target.closest('[data-ev]'); if (ev) openEvent(+ev.dataset.ev);
+};
+$('homeAgenda').onclick = e => {
+  if (e.target.closest('[data-issue]')) return go('#issues');
+  const ev = e.target.closest('[data-ev]');
+  if (ev) { go('#schedule=' + ev.dataset.date.slice(0, 7)); openEvent(+ev.dataset.ev); }
+};
+document.querySelector('#tab-schedule .main').onclick = e => {
+  const b = e.target.closest('[data-cal]'); if (!b) return;
+  go('#schedule=' + (+b.dataset.cal ? shiftMonth(calMonth, +b.dataset.cal) : today().slice(0, 7)));
+};
+$('seNew').onclick = () => editEvent(null);
+$('seSave').onclick = async () => {
+  const title = $('seTitle').value.trim(), date = $('seDate').value, end = $('seEnd').value;
+  if (!title || !date) return toast('제목과 날짜를 입력하세요');
+  if (end && end < date) return toast('종료일이 시작일보다 빠릅니다');
+  const v = { title, date, end: end > date ? end : '', time: $('seTime').value, place: $('sePlace').value.trim(), note: $('seNote').value.trim() };
+  const all = await readJSON(SCHED, []);
+  const cur = schedEdit && all.find(x => x.id === schedEdit);
+  if (cur) Object.assign(cur, v);
+  else all.push({ id: Math.max(0, ...all.map(x => x.id)) + 1, ...v, by: 'user', created: Date.now() });
+  await writeJSON(SCHED, all);
+  toast(cur ? '저장됨' : '등록됨'); editEvent(null);
+  go('#schedule=' + date.slice(0, 7));
+};
+$('seDel').onclick = async () => {
+  if (!schedEdit || !confirm('이 일정을 삭제할까요?')) return;
+  const all = await readJSON(SCHED, []);
+  await writeJSON(SCHED, all.filter(x => x.id !== schedEdit));
+  editEvent(null); toast('삭제됨'); loadSchedule();
+};
+// .ics 내보내기 — 구글·아웃룩 캘린더에서 가져오기용 (이슈 기한 제외)
+$('icsBtn').onclick = async () => {
+  const evs = await readJSON(SCHED, []);
+  if (!evs.length) return toast('내보낼 일정 없음');
+  const d8 = s => s.replace(/-/g, ''), t6 = s => s.replace(':', '') + '00';
+  const tx = s => String(s || '').replace(/[\\;,]/g, c => '\\' + c).replace(/\r?\n/g, '\\n');
+  const stamp = new Date().toISOString().replace(/[-:]|\.\d+/g, '');
+  const out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//wiki_local//portal//KO', 'CALSCALE:GREGORIAN'];
+  for (const e of evs) {
+    out.push('BEGIN:VEVENT', `UID:${e.id}-${e.created || 0}@wiki_local`, 'DTSTAMP:' + stamp);
+    if (e.time) out.push(`DTSTART:${d8(e.date)}T${t6(e.time)}`, e.end ? `DTEND:${d8(e.end)}T${t6(e.time)}` : 'DURATION:PT1H');
+    else out.push('DTSTART;VALUE=DATE:' + d8(e.date), 'DTEND;VALUE=DATE:' + d8(addDays(evEnd(e), 1)));
+    out.push('SUMMARY:' + tx(e.title));
+    if (e.place) out.push('LOCATION:' + tx(e.place));
+    if (e.note) out.push('DESCRIPTION:' + tx(e.note));
+    out.push('END:VEVENT');
+  }
+  out.push('END:VCALENDAR');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([out.join('\r\n') + '\r\n'], { type: 'text/calendar' }));
+  a.download = `${ROOT.name || 'wiki'}_일정.ics`; a.click();
 };
 </script>
 </body>

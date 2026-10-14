@@ -14,7 +14,8 @@ last_updated: 2026-10-14
 2. `wiki/_session_state.md` — 가변 상태 (직전 작업·in-progress)
 3. `wiki/log.md` 마지막 100줄
 4. `portal_data/issues.json` — 사용자 이슈 (AI 처리 요청이 있으면 대상)
-5. `wiki/index.md` 통계 섹션
+5. `portal_data/schedule.json` — 일정 (다가오는 마감·회의를 염두에 두고 작업 우선순위 판단)
+6. `wiki/index.md` 통계 섹션
 
 ## 3계층
 
@@ -31,8 +32,20 @@ last_updated: 2026-10-14
 
 - `open-portal.bat` 더블클릭 → Edge 로 `portal.html` 열림 → 이 폴더 선택 (최초 1회, 이후 기억)
 - 브라우저의 File System Access API 로 이 폴더를 **직접** 읽고 쓴다. 백엔드·포트·Docker 없음.
-- 포탈이 쓰는 파일: `raw/**` (업로드·메모), `portal_data/raw_meta.json`, `portal_data/issues.json` — 그 외엔 읽기만.
+- 포탈이 쓰는 파일: `raw/**` (업로드·메모), `portal_data/raw_meta.json`, `portal_data/issues.json`, `portal_data/schedule.json` — 그 외엔 읽기만.
 - 그래프: `graphify-out/graph.html` 이 있으면 🕸 버튼으로 연다.
+
+## 일정 (portal_data/schedule.json)
+
+포탈 📅 일정 탭(월간 달력)이 읽고 쓰는 JSON 배열. 미완료 이슈의 `due` 도 달력에 함께 표시된다(별도 저장 아님).
+```json
+[{"id": 1, "title": "KOCCA 공고 마감", "date": "2026-10-20", "end": "", "time": "18:00", "place": "", "note": "markdown",
+  "by": "user|ai", "source": "raw/공고.pdf", "created": 1791961685482}]
+```
+- `date`·`end` 는 `YYYY-MM-DD`(`end` 는 여러 날 일정일 때만), `time` 은 `HH:MM` 또는 빈 값. `id` = 기존 최대값 + 1, `created` = epoch ms.
+- **AI 등록**: ingest·질의 중 원본에서 **날짜가 확정된 일정**(공고 접수 마감, 발표·평가일, 회의 등)을 발견하면 `by: "ai"`, `source: <근거 raw/wiki 경로>` 로 추가하고 보고에 명시한다. 같은 제목·날짜가 이미 있으면 추가하지 않는다.
+- `by: "user"` 항목은 사용자 요청 없이 수정·삭제하지 않는다.
+- "이번 주 일정", "마감 임박한 것" 같은 질문은 이 파일 + `issues.json` 의 `due` 를 함께 본다.
 
 ## 작업 규칙
 - **한국어**로 응답. 간결하게.
